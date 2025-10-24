@@ -16,7 +16,8 @@ class TodoApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         primarySwatch: Colors.indigo,
-        scaffoldBackgroundColor: Colors.grey[200],
+        scaffoldBackgroundColor: Colors.grey[100],
+        useMaterial3: true, // modern material 3 look
       ),
       home: const TodoHomePage(),
     );
@@ -37,10 +38,9 @@ class _TodoHomePageState extends State<TodoHomePage> {
   @override
   void initState() {
     super.initState();
-    _loadTasks(); // Load saved tasks when app starts
+    _loadTasks();
   }
 
-  // ✅ Load tasks from SharedPreferences
   Future<void> _loadTasks() async {
     final prefs = await SharedPreferences.getInstance();
     final savedData = prefs.getString('tasks');
@@ -52,7 +52,6 @@ class _TodoHomePageState extends State<TodoHomePage> {
     }
   }
 
-  // ✅ Save tasks to SharedPreferences
   Future<void> _saveTasks() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('tasks', json.encode(_tasks));
@@ -65,7 +64,7 @@ class _TodoHomePageState extends State<TodoHomePage> {
         _tasks.add({'title': text, 'done': false});
       });
       _controller.clear();
-      _saveTasks(); // Save changes
+      _saveTasks();
     }
   }
 
@@ -73,14 +72,14 @@ class _TodoHomePageState extends State<TodoHomePage> {
     setState(() {
       _tasks[index]['done'] = !_tasks[index]['done'];
     });
-    _saveTasks(); // Save changes
+    _saveTasks();
   }
 
   void _deleteTask(int index) {
     setState(() {
       _tasks.removeAt(index);
     });
-    _saveTasks(); // Save changes
+    _saveTasks();
   }
 
   @override
@@ -89,6 +88,15 @@ class _TodoHomePageState extends State<TodoHomePage> {
       appBar: AppBar(
         title: const Text('To-Do List 📝'),
         centerTitle: true,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.indigo, Colors.purple],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
       ),
       body: Column(
         children: [
@@ -102,20 +110,18 @@ class _TodoHomePageState extends State<TodoHomePage> {
                     decoration: InputDecoration(
                       labelText: 'Enter a new task',
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                     onSubmitted: (_) => _addTask(),
                   ),
                 ),
                 const SizedBox(width: 10),
-                ElevatedButton(
+                FloatingActionButton(
                   onPressed: _addTask,
-                  style: ElevatedButton.styleFrom(
-                    shape: const CircleBorder(),
-                    padding: const EdgeInsets.all(16),
-                  ),
                   child: const Icon(Icons.add),
+                  backgroundColor: Colors.purple,
+                  mini: true,
                 ),
               ],
             ),
@@ -132,27 +138,39 @@ class _TodoHomePageState extends State<TodoHomePage> {
                     itemCount: _tasks.length,
                     itemBuilder: (context, index) {
                       final task = _tasks[index];
-                      return Card(
-                        margin: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
-                        child: ListTile(
-                          leading: Checkbox(
-                            value: task['done'],
-                            onChanged: (_) => _toggleTask(index),
-                          ),
-                          title: Text(
-                            task['title'],
-                            style: TextStyle(
-                              decoration: task['done']
-                                  ? TextDecoration.lineThrough
-                                  : TextDecoration.none,
-                              color:
-                                  task['done'] ? Colors.grey : Colors.black87,
+                      return Dismissible(
+                        key: Key(task['title'] + index.toString()),
+                        background: Container(
+                          color: Colors.red,
+                          alignment: Alignment.centerRight,
+                          padding: const EdgeInsets.only(right: 20),
+                          child: const Icon(Icons.delete, color: Colors.white),
+                        ),
+                        direction: DismissDirection.endToStart,
+                        onDismissed: (_) => _deleteTask(index),
+                        child: Card(
+                          margin: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
+                          elevation: 3,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                          child: ListTile(
+                            leading: Checkbox(
+                              value: task['done'],
+                              onChanged: (_) => _toggleTask(index),
+                              activeColor: Colors.purple,
                             ),
-                          ),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.red),
-                            onPressed: () => _deleteTask(index),
+                            title: Text(
+                              task['title'],
+                              style: TextStyle(
+                                decoration: task['done']
+                                    ? TextDecoration.lineThrough
+                                    : TextDecoration.none,
+                                color:
+                                    task['done'] ? Colors.grey : Colors.black87,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
                           ),
                         ),
                       );
