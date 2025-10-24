@@ -45,9 +45,17 @@ class _TodoHomePageState extends State<TodoHomePage> {
     final prefs = await SharedPreferences.getInstance();
     final savedData = prefs.getString('tasks');
     if (savedData != null) {
+      final loadedTasks = List<Map<String, dynamic>>.from(json.decode(savedData));
       setState(() {
         _tasks.clear();
-        _tasks.addAll(List<Map<String, dynamic>>.from(json.decode(savedData)));
+        _tasks.addAll(
+          loadedTasks.map((task) => {
+            'title': task['title'] ?? '',
+            'done': task['done'] ?? false, // default false
+            'priority': task['priority'] ?? 1, // default low priority
+            'timestamp': task['timestamp'] ?? DateTime.now().toString(),
+          }),
+        );
       });
     }
   }
@@ -75,7 +83,7 @@ class _TodoHomePageState extends State<TodoHomePage> {
 
   void _toggleTask(int index) {
     setState(() {
-      _tasks[index]['done'] = !_tasks[index]['done'];
+      _tasks[index]['done'] = !(_tasks[index]['done'] ?? false);
     });
     _saveTasks();
   }
@@ -136,10 +144,10 @@ class _TodoHomePageState extends State<TodoHomePage> {
                 PopupMenuButton<int>(
                   icon: const Icon(Icons.add_circle, size: 36, color: Colors.purple),
                   onSelected: (priority) => _addTask(priority: priority),
-                  itemBuilder: (context) => [
-                    const PopupMenuItem(value: 1, child: Text('Low Priority')),
-                    const PopupMenuItem(value: 2, child: Text('Medium Priority')),
-                    const PopupMenuItem(value: 3, child: Text('High Priority')),
+                  itemBuilder: (context) => const [
+                    PopupMenuItem(value: 1, child: Text('Low Priority')),
+                    PopupMenuItem(value: 2, child: Text('Medium Priority')),
+                    PopupMenuItem(value: 3, child: Text('High Priority')),
                   ],
                 ),
               ],
@@ -157,8 +165,13 @@ class _TodoHomePageState extends State<TodoHomePage> {
                     itemCount: _tasks.length,
                     itemBuilder: (context, index) {
                       final task = _tasks[index];
+                      final done = task['done'] ?? false;
+                      final priority = task['priority'] ?? 1;
+                      final title = task['title'] ?? '';
+                      final timestamp = task['timestamp'] ?? DateTime.now().toString();
+
                       return Dismissible(
-                        key: Key(task['title'] + index.toString()),
+                        key: Key(title + index.toString()),
                         background: Container(
                           color: Colors.red,
                           alignment: Alignment.centerRight,
@@ -171,18 +184,12 @@ class _TodoHomePageState extends State<TodoHomePage> {
                           duration: const Duration(milliseconds: 500),
                           margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(
-                            gradient: task['done']
+                            gradient: done
                                 ? LinearGradient(
-                                    colors: [
-                                      Colors.grey.shade300,
-                                      Colors.grey.shade100
-                                    ],
+                                    colors: [Colors.grey.shade300, Colors.grey.shade100],
                                   )
                                 : LinearGradient(
-                                    colors: [
-                                      priorityColor(task['priority']),
-                                      Colors.white
-                                    ],
+                                    colors: [priorityColor(priority), Colors.white],
                                   ),
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -190,24 +197,22 @@ class _TodoHomePageState extends State<TodoHomePage> {
                             leading: AnimatedSwitcher(
                               duration: const Duration(milliseconds: 300),
                               child: Checkbox(
-                                key: ValueKey(task['done']),
-                                value: task['done'],
+                                key: ValueKey(done),
+                                value: done,
                                 onChanged: (_) => _toggleTask(index),
                                 activeColor: Colors.purple,
                               ),
                             ),
                             title: Text(
-                              task['title'],
+                              title,
                               style: TextStyle(
-                                decoration: task['done']
-                                    ? TextDecoration.lineThrough
-                                    : TextDecoration.none,
-                                color: task['done'] ? Colors.grey : Colors.black87,
+                                decoration: done ? TextDecoration.lineThrough : TextDecoration.none,
+                                color: done ? Colors.grey : Colors.black87,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
                             subtitle: Text(
-                              'Added: ${task['timestamp'].substring(0, 16)}',
+                              'Added: ${timestamp.substring(0, 16)}',
                               style: const TextStyle(fontSize: 12, color: Colors.black54),
                             ),
                           ),
