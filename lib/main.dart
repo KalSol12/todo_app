@@ -41,24 +41,45 @@ class _TodoHomePageState extends State<TodoHomePage> {
     _loadTasks();
   }
 
-  Future<void> _loadTasks() async {
-    final prefs = await SharedPreferences.getInstance();
-    final savedData = prefs.getString('tasks');
-    if (savedData != null) {
-      final loadedTasks = List<Map<String, dynamic>>.from(json.decode(savedData));
-      setState(() {
-        _tasks.clear();
-        _tasks.addAll(
-          loadedTasks.map((task) => {
-            'title': task['title'] ?? '',
-            'done': task['done'] ?? false, // default false
-            'priority': task['priority'] ?? 1, // default low priority
-            'timestamp': task['timestamp'] ?? DateTime.now().toString(),
-          }),
-        );
-      });
-    }
+  void _sortTasks() {
+  _tasks.sort((a, b) {
+    // Incomplete tasks first
+    final doneA = a['done'] ?? false;
+    final doneB = b['done'] ?? false;
+    if (doneA != doneB) return doneA ? 1 : -1;
+
+    // Higher priority first
+    final priorityA = a['priority'] ?? 1;
+    final priorityB = b['priority'] ?? 1;
+    if (priorityA != priorityB) return priorityB - priorityA;
+
+    // Older tasks first
+    final dateA = DateTime.tryParse(a['timestamp'] ?? '') ?? DateTime.now();
+    final dateB = DateTime.tryParse(b['timestamp'] ?? '') ?? DateTime.now();
+    return dateA.compareTo(dateB);
+  });
+}
+
+
+ Future<void> _loadTasks() async {
+  final prefs = await SharedPreferences.getInstance();
+  final savedData = prefs.getString('tasks');
+  if (savedData != null) {
+    final loadedTasks = List<Map<String, dynamic>>.from(json.decode(savedData));
+    setState(() {
+      _tasks.clear();
+      _tasks.addAll(
+        loadedTasks.map((task) => {
+          'title': task['title'] ?? '',
+          'done': task['done'] ?? false,
+          'priority': task['priority'] ?? 1,
+          'timestamp': task['timestamp'] ?? DateTime.now().toString(),
+        }),
+      );
+      _sortTasks(); // <-- sort after loading
+    });
   }
+}
 
   Future<void> _saveTasks() async {
     final prefs = await SharedPreferences.getInstance();
@@ -66,34 +87,37 @@ class _TodoHomePageState extends State<TodoHomePage> {
   }
 
   void _addTask({int priority = 1}) {
-    final text = _controller.text.trim();
-    if (text.isNotEmpty) {
-      setState(() {
-        _tasks.add({
-          'title': text,
-          'done': false,
-          'priority': priority,
-          'timestamp': DateTime.now().toString()
-        });
+  final text = _controller.text.trim();
+  if (text.isNotEmpty) {
+    setState(() {
+      _tasks.add({
+        'title': text,
+        'done': false,
+        'priority': priority,
+        'timestamp': DateTime.now().toString(),
       });
-      _controller.clear();
-      _saveTasks();
-    }
+      _sortTasks(); // <-- sort after adding
+    });
+    _controller.clear();
+    _saveTasks();
   }
+}
 
   void _toggleTask(int index) {
-    setState(() {
-      _tasks[index]['done'] = !(_tasks[index]['done'] ?? false);
-    });
-    _saveTasks();
-  }
+  setState(() {
+    _tasks[index]['done'] = !(_tasks[index]['done'] ?? false);
+    _sortTasks(); // <-- sort after toggling
+  });
+  _saveTasks();
+}
 
   void _deleteTask(int index) {
-    setState(() {
-      _tasks.removeAt(index);
-    });
-    _saveTasks();
-  }
+  setState(() {
+    _tasks.removeAt(index);
+    _sortTasks(); // <-- sort after deleting
+  });
+  _saveTasks();
+}
 
   Color priorityColor(int priority) {
     switch (priority) {
