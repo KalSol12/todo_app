@@ -17,7 +17,7 @@ class TodoApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.indigo,
         scaffoldBackgroundColor: Colors.grey[100],
-        useMaterial3: true, // modern material 3 look
+        useMaterial3: true,
       ),
       home: const TodoHomePage(),
     );
@@ -45,9 +45,17 @@ class _TodoHomePageState extends State<TodoHomePage> {
     final prefs = await SharedPreferences.getInstance();
     final savedData = prefs.getString('tasks');
     if (savedData != null) {
+      final loadedTasks = List<Map<String, dynamic>>.from(json.decode(savedData));
       setState(() {
         _tasks.clear();
-        _tasks.addAll(List<Map<String, dynamic>>.from(json.decode(savedData)));
+        _tasks.addAll(
+          loadedTasks.map((task) => {
+            'title': task['title'] ?? '',
+            'done': task['done'] ?? false, // default false
+            'priority': task['priority'] ?? 1, // default low priority
+            'timestamp': task['timestamp'] ?? DateTime.now().toString(),
+          }),
+        );
       });
     }
   }
@@ -57,11 +65,16 @@ class _TodoHomePageState extends State<TodoHomePage> {
     await prefs.setString('tasks', json.encode(_tasks));
   }
 
-  void _addTask() {
+  void _addTask({int priority = 1}) {
     final text = _controller.text.trim();
     if (text.isNotEmpty) {
       setState(() {
-        _tasks.add({'title': text, 'done': false});
+        _tasks.add({
+          'title': text,
+          'done': false,
+          'priority': priority,
+          'timestamp': DateTime.now().toString()
+        });
       });
       _controller.clear();
       _saveTasks();
@@ -70,7 +83,7 @@ class _TodoHomePageState extends State<TodoHomePage> {
 
   void _toggleTask(int index) {
     setState(() {
-      _tasks[index]['done'] = !_tasks[index]['done'];
+      _tasks[index]['done'] = !(_tasks[index]['done'] ?? false);
     });
     _saveTasks();
   }
@@ -80,6 +93,17 @@ class _TodoHomePageState extends State<TodoHomePage> {
       _tasks.removeAt(index);
     });
     _saveTasks();
+  }
+
+  Color priorityColor(int priority) {
+    switch (priority) {
+      case 3:
+        return Colors.redAccent;
+      case 2:
+        return Colors.orangeAccent;
+      default:
+        return Colors.greenAccent;
+    }
   }
 
   @override
@@ -117,11 +141,14 @@ class _TodoHomePageState extends State<TodoHomePage> {
                   ),
                 ),
                 const SizedBox(width: 10),
-                FloatingActionButton(
-                  onPressed: _addTask,
-                  child: const Icon(Icons.add),
-                  backgroundColor: Colors.purple,
-                  mini: true,
+                PopupMenuButton<int>(
+                  icon: const Icon(Icons.add_circle, size: 36, color: Colors.purple),
+                  onSelected: (priority) => _addTask(priority: priority),
+                  itemBuilder: (context) => const [
+                    PopupMenuItem(value: 1, child: Text('Low Priority')),
+                    PopupMenuItem(value: 2, child: Text('Medium Priority')),
+                    PopupMenuItem(value: 3, child: Text('High Priority')),
+                  ],
                 ),
               ],
             ),
@@ -138,8 +165,13 @@ class _TodoHomePageState extends State<TodoHomePage> {
                     itemCount: _tasks.length,
                     itemBuilder: (context, index) {
                       final task = _tasks[index];
+                      final done = task['done'] ?? false;
+                      final priority = task['priority'] ?? 1;
+                      final title = task['title'] ?? '';
+                      final timestamp = task['timestamp'] ?? DateTime.now().toString();
+
                       return Dismissible(
-                        key: Key(task['title'] + index.toString()),
+                        key: Key(title + index.toString()),
                         background: Container(
                           color: Colors.red,
                           alignment: Alignment.centerRight,
@@ -148,28 +180,40 @@ class _TodoHomePageState extends State<TodoHomePage> {
                         ),
                         direction: DismissDirection.endToStart,
                         onDismissed: (_) => _deleteTask(index),
-                        child: Card(
-                          margin: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 6),
-                          elevation: 3,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 500),
+                          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            gradient: done
+                                ? LinearGradient(
+                                    colors: [Colors.grey.shade300, Colors.grey.shade100],
+                                  )
+                                : LinearGradient(
+                                    colors: [priorityColor(priority), Colors.white],
+                                  ),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                           child: ListTile(
-                            leading: Checkbox(
-                              value: task['done'],
-                              onChanged: (_) => _toggleTask(index),
-                              activeColor: Colors.purple,
+                            leading: AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 300),
+                              child: Checkbox(
+                                key: ValueKey(done),
+                                value: done,
+                                onChanged: (_) => _toggleTask(index),
+                                activeColor: Colors.purple,
+                              ),
                             ),
                             title: Text(
-                              task['title'],
+                              title,
                               style: TextStyle(
-                                decoration: task['done']
-                                    ? TextDecoration.lineThrough
-                                    : TextDecoration.none,
-                                color:
-                                    task['done'] ? Colors.grey : Colors.black87,
-                                fontWeight: FontWeight.w500,
+                                decoration: done ? TextDecoration.lineThrough : TextDecoration.none,
+                                color: done ? Colors.grey : Colors.black87,
+                                fontWeight: FontWeight.w600,
                               ),
+                            ),
+                            subtitle: Text(
+                              'Added: ${timestamp.substring(0, 16)}',
+                              style: const TextStyle(fontSize: 12, color: Colors.black54),
                             ),
                           ),
                         ),
