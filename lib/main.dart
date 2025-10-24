@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
 void main() {
   runApp(const TodoApp());
@@ -32,6 +34,30 @@ class _TodoHomePageState extends State<TodoHomePage> {
   final List<Map<String, dynamic>> _tasks = [];
   final TextEditingController _controller = TextEditingController();
 
+  @override
+  void initState() {
+    super.initState();
+    _loadTasks(); // Load saved tasks when app starts
+  }
+
+  // ✅ Load tasks from SharedPreferences
+  Future<void> _loadTasks() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedData = prefs.getString('tasks');
+    if (savedData != null) {
+      setState(() {
+        _tasks.clear();
+        _tasks.addAll(List<Map<String, dynamic>>.from(json.decode(savedData)));
+      });
+    }
+  }
+
+  // ✅ Save tasks to SharedPreferences
+  Future<void> _saveTasks() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('tasks', json.encode(_tasks));
+  }
+
   void _addTask() {
     final text = _controller.text.trim();
     if (text.isNotEmpty) {
@@ -39,6 +65,7 @@ class _TodoHomePageState extends State<TodoHomePage> {
         _tasks.add({'title': text, 'done': false});
       });
       _controller.clear();
+      _saveTasks(); // Save changes
     }
   }
 
@@ -46,12 +73,14 @@ class _TodoHomePageState extends State<TodoHomePage> {
     setState(() {
       _tasks[index]['done'] = !_tasks[index]['done'];
     });
+    _saveTasks(); // Save changes
   }
 
   void _deleteTask(int index) {
     setState(() {
       _tasks.removeAt(index);
     });
+    _saveTasks(); // Save changes
   }
 
   @override
